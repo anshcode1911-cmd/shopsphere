@@ -1,7 +1,7 @@
 flowchart TB
-  browser([Browser UI]) -- REST/JSON --> gw[gateway<br/>FastAPI · public]
+  browser([Browser UI]) -- REST/JSON --> gw[gateway<br/>FastAPI, public]
   gw -- REST --> us[user-service<br/>FastAPI]
-  gw -- REST --> os[order-service<br/>FastAPI · Saga orchestrator]
+  gw -- REST --> os[order-service<br/>FastAPI, Saga orchestrator]
   gw -- REST --> as[analytics-service<br/>FastAPI + Kafka consumer]
   gw == gRPC ==> cs[catalog-service<br/>gRPC]
   os -- REST --> us
@@ -13,7 +13,7 @@ flowchart TB
   fl -. "Kafka: analytics-results" .-> k2[[Kafka analytics-results]]
   k2 -.-> as
   os -. "Pub/Sub: order-completed" .-> t[[Pub/Sub]]
-  t -.-> fn[invoice-function<br/>Cloud Function · serverless]
+  t -.-> fn[invoice-function<br/>Cloud Function, serverless]
 
   us --- db1[(Cloud SQL: users)]
   cs --- db2[(Cloud SQL: catalog)]

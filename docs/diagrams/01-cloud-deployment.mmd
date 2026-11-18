@@ -4,15 +4,15 @@ flowchart TB
     direction LR
     gh[(GitHub repo)] --> gha[GitHub Actions] --> ar[(Artifact Registry)]
   end
-  subgraph GCP["Google Cloud project — every resource created by Terraform"]
+  subgraph GCP["Google Cloud project (created by Terraform)"]
     direction LR
     subgraph VPC["VPC shopsphere-vpc"]
       direction TB
       subgraph GKE["GKE Standard (zonal, autoscaling node pool)"]
         direction LR
         argocd[ArgoCD]
-        apps["ns ecommerce<br/>gateway · user · order · catalog<br/>payment · analytics<br/>(3 HPAs)"]
-        mon["ns monitoring<br/>Prometheus · Grafana · Loki"]
+        apps["ns ecommerce<br/>gateway, user, order, catalog<br/>payment, analytics<br/>(3 HPAs)"]
+        mon["ns monitoring<br/>Prometheus, Grafana, Loki"]
       end
       sql[(Cloud SQL Postgres<br/>private IP)]
       kafka[[Managed Kafka]]

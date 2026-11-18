@@ -3,7 +3,7 @@ flowchart TB
   e2[order-service: order_completed,<br/>order_cancelled] --> t1
   t1 --> src[KafkaSource<br/>event-time, 10 s bounded<br/>out-of-orderness, idleness 30 s]
   src --> kb[keyBy eventType]
-  kb --> w[TumblingEventTimeWindow 60 s<br/>AggregateFunction state:<br/>count · Set userIds · revenue]
+  kb --> w[TumblingEventTimeWindow 60 s<br/>AggregateFunction state:<br/>count, Set userIds, revenue]
   w --> pw[ProcessWindowFunction<br/>adds window start/end]
   pw --> snk[KafkaSink]
   snk --> t2[[Kafka analytics-results]]

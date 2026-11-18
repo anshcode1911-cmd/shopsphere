@@ -1,5 +1,5 @@
 flowchart LR
-  dev([git push to main]) --> gha[GitHub Actions<br/>test · docker build]
+  dev([git push to main]) --> gha[GitHub Actions<br/>test, docker build]
   gha -->|push image :sha| ar[(Artifact Registry)]
   gha -->|kustomize edit set image<br/>commit to gitops/| repo[(Git repo<br/>gitops/apps/ecommerce)]
   repo -->|poll / sync| argo[ArgoCD in GKE]
