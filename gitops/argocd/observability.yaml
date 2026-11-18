@@ -1,0 +1,24 @@
+# Grafana dashboards (ConfigMaps picked up by the Grafana sidecar).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shopsphere-observability
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USER/shopsphere.git
+    targetRevision: main
+    path: gitops/apps/observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

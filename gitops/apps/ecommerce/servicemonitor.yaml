@@ -1,0 +1,15 @@
+# Prometheus scrapes /metrics of every ShopSphere Service (port named "metrics").
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shopsphere
+  labels:
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: shopsphere
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 15s

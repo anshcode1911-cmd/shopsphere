@@ -1,0 +1,88 @@
+# order-service: Checkout + Saga orchestrator (REST, Cloud SQL, gRPC client, Kafka + Pub/Sub producer)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: order-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app: order-service
+        app.kubernetes.io/part-of: shopsphere
+    spec:
+      serviceAccountName: shopsphere-app
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: order-service
+      containers:
+        - name: order-service
+          image: order-service          # rewritten by kustomization.yaml `images:` (CI bumps the tag)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: platform-config      # created by Terraform stage 02
+            - secretRef:
+                name: platform-secrets     # created by Terraform stage 02
+          env:
+            - name: SERVICE_NAME
+              value: "order-service"
+            - name: DB_NAME
+              value: "orders"
+            - name: USER_SERVICE_URL
+              value: "http://user-service:8080"
+            - name: CATALOG_GRPC_ADDR
+              value: "dns:///catalog-service:50051"
+            - name: PAYMENT_GRPC_ADDR
+              value: "dns:///payment-service:50052"
+          resources:
+            requests: {cpu: 150m, memory: 256Mi}
+            limits: {cpu: 1000m, memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  type: ClusterIP
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: metrics
+      port: 9090
+      targetPort: http

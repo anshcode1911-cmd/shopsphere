@@ -1,0 +1,81 @@
+# CI for the 6 GKE microservices:  build -> push to Artifact Registry -> bump image
+# tags in gitops/apps/ecommerce/kustomization.yaml -> commit.  ArgoCD (watching this
+# repo) then performs the rollout. Nothing here talks to the cluster: pure GitOps.
+name: build-and-deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "libs/**"
+      - "proto/**"
+      - ".github/workflows/build-deploy.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # push the tag bump
+  id-token: write   # OIDC -> GCP Workload Identity Federation
+
+env:
+  REGISTRY: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/shopsphere
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Unit tests (saga orchestrator)
+        run: |
+          pip install -q pytest
+          python -m pytest -q tests/
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway, user-service, catalog-service, order-service, payment-service, analytics-service]
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  gitops-bump:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: imranismail/setup-kustomize@v2
+      - name: Point manifests at the new images
+        working-directory: gitops/apps/ecommerce
+        run: |
+          for s in gateway user-service catalog-service order-service payment-service analytics-service; do
+            kustomize edit set image "$s=${REGISTRY}/$s:${GITHUB_SHA}"
+          done
+      - name: Commit (ArgoCD picks this up)
+        run: |
+          git config user.name  "shopsphere-ci"
+          git config user.email "ci@shopsphere.dev"
+          git add gitops/apps/ecommerce/kustomization.yaml
+          git commit -m "deploy: images ${GITHUB_SHA::7} [skip ci]" || echo "nothing to commit"
+          git pull --rebase origin main
+          git push origin HEAD:main

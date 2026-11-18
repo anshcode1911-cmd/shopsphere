@@ -1,0 +1,9 @@
+flowchart LR
+  dev([git push to main]) --> gha[GitHub Actions<br/>test · docker build]
+  gha -->|push image :sha| ar[(Artifact Registry)]
+  gha -->|kustomize edit set image<br/>commit to gitops/| repo[(Git repo<br/>gitops/apps/ecommerce)]
+  repo -->|poll / sync| argo[ArgoCD in GKE]
+  argo -->|apply Deployments, HPAs,<br/>ServiceMonitors| gke[GKE ns ecommerce]
+  ar -->|pull| gke
+  tf[Terraform 01-platform<br/>Terraform 02-bootstrap] -->|creates| infra[(VPC, GKE, SQL, Kafka,<br/>Dataproc, Firestore, GCS,<br/>Pub/Sub, Function, IAM)]
+  tf -->|installs ArgoCD +<br/>root Application| argo

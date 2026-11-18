@@ -1,0 +1,4 @@
+gitops_repo_url = "https://github.com/your-github-user/shopsphere.git"
+gitops_revision = "main"
+# git_username  = "your-github-user"   # only for a private repo
+# git_token     = "ghp_xxx"            # only for a private repo

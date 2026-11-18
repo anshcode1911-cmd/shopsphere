@@ -1,0 +1,33 @@
+# Child of the root app-of-apps: the 6 GKE microservices (Kustomize), HPAs, ServiceMonitors.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shopsphere-ecommerce
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"   # after monitoring CRDs (ServiceMonitor) exist
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_GITHUB_USER/shopsphere.git
+    targetRevision: main
+    path: gitops/apps/ecommerce
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ecommerce
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true   # ServiceMonitor CRD may arrive slightly later
+    retry:
+      limit: 10
+      backoff: {duration: 15s, factor: 2, maxDuration: 5m}
+  ignoreDifferences:
+    # HPA owns spec.replicas
+    - group: apps
+      kind: Deployment
+      jsonPointers: [/spec/replicas]

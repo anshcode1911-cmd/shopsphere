@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package shopsphere.v1;
+
+// ---------------------------------------------------------------------------
+// Catalog + inventory (owned by catalog-service, gRPC on :50051)
+// ---------------------------------------------------------------------------
+service CatalogService {
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
+  rpc GetProduct(GetProductRequest) returns (Product);
+  // Saga step 1 (local transaction in catalog DB). Idempotent per order_id.
+  rpc ReserveStock(ReserveStockRequest) returns (ReserveStockResponse);
+  // Saga compensation for step 1. Idempotent per order_id.
+  rpc ReleaseStock(ReleaseStockRequest) returns (ReleaseStockResponse);
+}
+
+message Product {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  int32 stock = 5;
+  string category = 6;
+}
+
+message ListProductsRequest {
+  string category = 1; // optional filter
+}
+
+message ListProductsResponse {
+  repeated Product products = 1;
+}
+
+message GetProductRequest {
+  string id = 1;
+}
+
+message OrderItem {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message ReserveStockRequest {
+  string order_id = 1;
+  repeated OrderItem items = 2;
+}
+
+message ReserveStockResponse {
+  bool success = 1;
+  string reason = 2;
+  double total_amount = 3;
+}
+
+message ReleaseStockRequest {
+  string order_id = 1;
+}
+
+message ReleaseStockResponse {
+  bool success = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Payments (owned by payment-service, gRPC on :50052)
+// ---------------------------------------------------------------------------
+service PaymentService {
+  // Saga step 2. Idempotent per order_id.
+  rpc Charge(ChargeRequest) returns (ChargeResponse);
+  // Saga compensation for step 2. Idempotent per order_id.
+  rpc Refund(RefundRequest) returns (RefundResponse);
+}
+
+message ChargeRequest {
+  string order_id = 1;
+  string user_id = 2;
+  double amount = 3;
+  bool force_failure = 4; // demo hook: lets the demo trigger a compensation
+}
+
+message ChargeResponse {
+  bool success = 1;
+  string payment_id = 2;
+  string reason = 3;
+}
+
+message RefundRequest {
+  string order_id = 1;
+}
+
+message RefundResponse {
+  bool success = 1;
+}

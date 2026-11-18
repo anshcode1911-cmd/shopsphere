@@ -1,0 +1,24 @@
+flowchart TB
+  browser([Browser UI]) -- REST/JSON --> gw[gateway<br/>FastAPI · public]
+  gw -- REST --> us[user-service<br/>FastAPI]
+  gw -- REST --> os[order-service<br/>FastAPI · Saga orchestrator]
+  gw -- REST --> as[analytics-service<br/>FastAPI + Kafka consumer]
+  gw == gRPC ==> cs[catalog-service<br/>gRPC]
+  os -- REST --> us
+  os == "gRPC ReserveStock / ReleaseStock" ==> cs
+  os == "gRPC Charge / Refund" ==> ps[payment-service<br/>gRPC]
+  gw -. "Kafka: shop-events (click-stream)" .-> k1[[Kafka shop-events]]
+  os -. "Kafka: order_completed / cancelled" .-> k1
+  k1 -.-> fl[analytics-flink<br/>Flink on Dataproc<br/>1-min tumbling window]
+  fl -. "Kafka: analytics-results" .-> k2[[Kafka analytics-results]]
+  k2 -.-> as
+  os -. "Pub/Sub: order-completed" .-> t[[Pub/Sub]]
+  t -.-> fn[invoice-function<br/>Cloud Function · serverless]
+
+  us --- db1[(Cloud SQL: users)]
+  cs --- db2[(Cloud SQL: catalog)]
+  os --- db3[(Cloud SQL: orders + saga_log)]
+  ps --- f1[(Firestore: payments)]
+  as --- f2[(Firestore: analytics_windows)]
+  fn --- g1[(GCS: invoices)]
+  fn --- f3[(Firestore: invoices, notifications)]

@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: ecom-common
+Version: 1.0.0
+Requires-Dist: prometheus-client>=0.20
+Requires-Dist: grpcio>=1.62
+Dynamic: requires-dist

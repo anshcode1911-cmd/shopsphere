@@ -1,0 +1,45 @@
+# Build + test the Flink job, upload the fat jar to GCS and (re)submit it to the
+# Dataproc Flink cluster that Terraform created.
+name: flink-analytics-job
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "analytics-flink/**"
+      - ".github/workflows/flink-job.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "11", cache: maven}
+      - name: Build + unit test
+        working-directory: analytics-flink
+        run: mvn -B -q package
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Upload jar
+        run: |
+          gcloud storage cp analytics-flink/target/analytics-flink-1.0.0.jar \
+            "gs://${{ vars.FLINK_BUCKET }}/jars/analytics-flink-${GITHUB_SHA}.jar"
+      - name: Submit to Dataproc (cancel the previous version first)
+        env:
+          JAR: gs://${{ vars.FLINK_BUCKET }}/jars/analytics-flink-${{ github.sha }}.jar
+          CLUSTER: ${{ vars.DATAPROC_CLUSTER }}
+          REGION: ${{ vars.GCP_REGION }}
+          KAFKA_BOOTSTRAP: ${{ vars.KAFKA_BOOTSTRAP }}
+          KAFKA_USER: ${{ vars.KAFKA_SASL_USERNAME }}
+          FLINK_BUCKET: ${{ vars.FLINK_BUCKET }}
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+        run: bash scripts/submit-flink-job.sh --async

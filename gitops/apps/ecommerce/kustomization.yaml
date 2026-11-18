@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ecommerce
+
+resources:
+  - serviceaccount.yaml
+  - gateway.yaml
+  - user-service.yaml
+  - catalog-service.yaml
+  - order-service.yaml
+  - payment-service.yaml
+  - analytics-service.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - servicemonitor.yaml
+
+# CI (GitHub Actions) runs `kustomize edit set image <svc>=<registry>/<svc>:<git-sha>`
+# and commits the change; ArgoCD notices the commit and rolls the Deployment.
+images:
+  - name: gateway
+    newName: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT/shopsphere/gateway
+    newTag: latest
+  - name: user-service
+    newName: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT/shopsphere/user-service
+    newTag: latest
+  - name: catalog-service
+    newName: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT/shopsphere/catalog-service
+    newTag: latest
+  - name: order-service
+    newName: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT/shopsphere/order-service
+    newTag: latest
+  - name: payment-service
+    newName: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT/shopsphere/payment-service
+    newTag: latest
+  - name: analytics-service
+    newName: us-central1-docker.pkg.dev/YOUR_GCP_PROJECT/shopsphere/analytics-service
+    newTag: latest

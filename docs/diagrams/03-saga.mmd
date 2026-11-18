@@ -1,0 +1,30 @@
+sequenceDiagram
+  autonumber
+  participant C as Client (gateway)
+  participant O as order-service (orchestrator)
+  participant U as user-service
+  participant K as catalog-service
+  participant P as payment-service
+  participant Q as Kafka / Pub/Sub
+  C->>O: POST /orders
+  O->>U: GET /users/{id} (REST)
+  O->>O: INSERT order PENDING (local tx)
+  O->>K: ReserveStock(order_id, items) (gRPC)
+  alt insufficient stock
+    K-->>O: success=false
+    O->>O: status = REJECTED (nothing to compensate)
+  else reserved
+    K-->>O: success=true, total
+    O->>P: Charge(order_id, total) (gRPC)
+    alt payment declined
+      P-->>O: success=false
+      O->>K: ReleaseStock(order_id)  [COMPENSATION]
+      O->>O: status = CANCELLED
+      O-)Q: Kafka order_cancelled
+    else charged
+      P-->>O: success=true
+      O->>O: status = COMPLETED (local tx)
+      O-)Q: Kafka order_completed + Pub/Sub order-completed
+    end
+  end
+  O-->>C: order + saga log

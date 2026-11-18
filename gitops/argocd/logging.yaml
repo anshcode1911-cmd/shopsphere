@@ -1,0 +1,44 @@
+# Loki + Promtail: centralised log aggregation for every pod (queried from Grafana).
+# Cloud Logging additionally aggregates GKE + Dataproc(Flink) + Cloud Function logs
+# into the `shopsphere-central` log bucket (see infra/terraform/01-platform/logging.tf).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki-stack
+  namespace: argocd
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki-stack
+    targetRevision: 2.10.2
+    helm:
+      releaseName: loki     # -> Service loki.monitoring:3100
+      valuesObject:
+        loki:
+          enabled: true
+          persistence:
+            enabled: true
+            size: 10Gi
+          config:
+            table_manager:
+              retention_deletes_enabled: true
+              retention_period: 168h
+        promtail:
+          enabled: true
+        grafana:
+          enabled: false      # we use the Grafana from kube-prometheus-stack
+        prometheus:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

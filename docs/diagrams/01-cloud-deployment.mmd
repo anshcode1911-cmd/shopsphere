@@ -1,0 +1,41 @@
+flowchart TB
+  user([Users / k6]) -->|HTTP| lb[External L4<br/>Load Balancer]
+  subgraph CICD["Delivery"]
+    direction LR
+    gh[(GitHub repo)] --> gha[GitHub Actions] --> ar[(Artifact Registry)]
+  end
+  subgraph GCP["Google Cloud project — every resource created by Terraform"]
+    direction LR
+    subgraph VPC["VPC shopsphere-vpc"]
+      direction TB
+      subgraph GKE["GKE Standard (zonal, autoscaling node pool)"]
+        direction LR
+        argocd[ArgoCD]
+        apps["ns ecommerce<br/>gateway · user · order · catalog<br/>payment · analytics<br/>(3 HPAs)"]
+        mon["ns monitoring<br/>Prometheus · Grafana · Loki"]
+      end
+      sql[(Cloud SQL Postgres<br/>private IP)]
+      kafka[[Managed Kafka]]
+      dp[Dataproc + Flink]
+    end
+    subgraph SVL["Serverless & managed storage"]
+      direction TB
+      pubsub[[Pub/Sub]]
+      fn[Cloud Function gen2]
+      fs[(Firestore)]
+      gcs[(Cloud Storage)]
+      logs[(Cloud Logging<br/>central bucket)]
+    end
+  end
+  lb --> apps
+  argocd -. sync .-> gh
+  ar -. pull .-> apps
+  apps --> sql
+  apps <--> kafka
+  kafka <--> dp
+  apps --> fs
+  apps --> pubsub --> fn --> gcs
+  fn --> fs
+  GKE -. logs .-> logs
+  dp -. logs .-> logs
+  fn -. logs .-> logs

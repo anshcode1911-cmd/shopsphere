@@ -1,0 +1,86 @@
+# payment-service: Payments ledger (gRPC, Firestore)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: payment-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app: payment-service
+        app.kubernetes.io/part-of: shopsphere
+    spec:
+      serviceAccountName: shopsphere-app
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: payment-service
+      containers:
+        - name: payment-service
+          image: payment-service          # rewritten by kustomization.yaml `images:` (CI bumps the tag)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: grpc
+              containerPort: 50052
+            - name: metrics
+              containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: platform-config      # created by Terraform stage 02
+            - secretRef:
+                name: platform-secrets     # created by Terraform stage 02
+          env:
+            - name: SERVICE_NAME
+              value: "payment-service"
+            - name: PAYMENT_DECLINE_RATE
+              value: "0.05"
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          readinessProbe:
+            grpc: {port: 50052}
+            periodSeconds: 10
+          livenessProbe:
+            grpc: {port: 50052}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  # Headless: DNS returns every ready pod IP so gRPC clients can round-robin per request
+  # (a ClusterIP would pin each long-lived HTTP/2 connection to one pod and defeat the HPA).
+  clusterIP: None
+  selector:
+    app: payment-service
+  ports:
+    - name: grpc
+      port: 50052
+      targetPort: grpc
+      appProtocol: grpc
+    - name: metrics
+      port: 9090
+      targetPort: metrics

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShopSphere — cloud-native store</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1d2330; --muted:#667085; --line:#e4e7ec;
+          --accent:#2f5bea; --ok:#12805c; --bad:#c4320a; --warn:#b54708; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--ink); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  header label { font-size:13px; opacity:.85; }
+  header input { padding:6px 8px; border-radius:6px; border:0; width:110px; }
+  main { display:grid; grid-template-columns: 2fr 1fr; gap:20px; padding:20px 24px; max-width:1300px; margin:auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:20px; }
+  h2 { font-size:15px; margin:0 0 12px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap:12px; }
+  .prod { border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; flex-direction:column; gap:6px; }
+  .prod .name { font-weight:600; }
+  .prod .desc, .muted { color:var(--muted); font-size:12px; }
+  .prod .price { font-weight:600; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:7px 10px; cursor:pointer; font-size:13px; }
+  button.secondary { background:#eef2ff; color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th, td { text-align:left; padding:6px 4px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:500; }
+  .pill { padding:2px 8px; border-radius:999px; font-size:11.5px; font-weight:600; }
+  .COMPLETED, .SUCCEEDED { background:#e7f6ef; color:var(--ok); }
+  .CANCELLED, .REJECTED, .FAILED { background:#fdecea; color:var(--bad); }
+  .PENDING, .STARTED { background:#fff4e5; color:var(--warn); }
+  .saga { margin-top:8px; border-left:3px solid var(--line); padding-left:10px; }
+  .saga div { margin:3px 0; font-size:12.5px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #toast { position:fixed; bottom:20px; right:20px; background:var(--ink); color:#fff; padding:10px 14px; border-radius:8px; display:none; max-width:360px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ShopSphere <span style="opacity:.6;font-weight:400">· microservices on GKE · Saga checkout</span></h1>
+  <label>User ID <input id="userId" value="u-0001"></label>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>Catalog <span class="muted">(gateway → catalog-service over gRPC)</span></h2>
+      <div class="grid" id="products"></div>
+    </section>
+    <section>
+      <h2>My orders <span class="muted">(gateway → order-service over REST)</span></h2>
+      <div id="orders" class="muted">No orders yet.</div>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>Cart</h2>
+      <div id="cart" class="muted">Cart is empty.</div>
+      <div class="row" style="margin-top:10px">
+        <label class="muted"><input type="checkbox" id="failPay"> simulate payment failure (Saga compensation)</label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="checkout" disabled>Checkout</button>
+        <button class="secondary" onclick="cart={};renderCart()">Clear</button>
+      </div>
+    </section>
+    <section>
+      <h2>Live analytics <span class="muted">(Kafka → Flink on Dataproc → Kafka → Firestore)</span></h2>
+      <div id="analytics" class="muted">Waiting for the first 1-minute window…</div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+let cart = {};
+let products = [];
+const $ = (id) => document.getElementById(id);
+const uid = () => $("userId").value.trim() || "anonymous";
+const money = (v) => "₹" + Number(v || 0).toLocaleString("en-IN", {minimumFractionDigits: 2});
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; setTimeout(() => t.style.display = "none", 3500); }
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {...opts, headers: {"Content-Type": "application/json", "X-User-Id": uid(), ...(opts.headers || {})}});
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail ? JSON.stringify(body.detail) : res.statusText);
+  return body;
+}
+
+async function loadProducts() {
+  try {
+    products = await api("/api/products");
+    $("products").innerHTML = products.map(p => `
+      <div class="prod">
+        <div class="name">${esc(p.name)}</div>
+        <div class="desc">${esc(p.description)}</div>
+        <div class="price">${money(p.price)}</div>
+        <div class="muted">${esc(p.category)} · stock ${p.stock}</div>
+        <button onclick="addToCart('${esc(p.id)}')">Add to cart</button>
+      </div>`).join("");
+  } catch (e) { $("products").textContent = "Failed to load products: " + e.message; }
+}
+
+async function addToCart(id) {
+  cart[id] = (cart[id] || 0) + 1;
+  renderCart();
+  api("/api/cart", {method: "POST", body: JSON.stringify({product_id: id, quantity: 1})}).catch(() => {});
+}
+
+function renderCart() {
+  const ids = Object.keys(cart);
+  $("checkout").disabled = ids.length === 0;
+  if (!ids.length) { $("cart").innerHTML = "Cart is empty."; return; }
+  let total = 0;
+  const rows = ids.map(id => {
+    const p = products.find(x => x.id === id) || {name: id, price: 0};
+    total += p.price * cart[id];
+    return `<tr><td>${esc(p.name)}</td><td>× ${cart[id]}</td><td>${money(p.price * cart[id])}</td></tr>`;
+  }).join("");
+  $("cart").innerHTML = `<table>${rows}<tr><th>Total</th><th></th><th>${money(total)}</th></tr></table>`;
+}
+
+function renderSaga(log) {
+  return `<div class="saga">${(log || []).map(e =>
+    `<div><span class="pill ${e.status}">${e.status}</span> ${e.action === "COMPENSATE" ? "↩︎ compensate" : "→"} <b>${esc(e.step)}</b> <span class="muted">${esc(e.detail || "")}</span></div>`
+  ).join("")}</div>`;
+}
+
+$("checkout").onclick = async () => {
+  $("checkout").disabled = true;
+  try {
+    const order = await api("/api/orders", {method: "POST", body: JSON.stringify({
+      user_id: uid(),
+      items: Object.entries(cart).map(([product_id, quantity]) => ({product_id, quantity})),
+      simulate_payment_failure: $("failPay").checked,
+    })});
+    toast(`Order ${order.id}: ${order.status}`);
+    if (order.status === "COMPLETED") { cart = {}; renderCart(); }
+    loadOrders(); loadProducts();
+  } catch (e) { toast("Checkout failed: " + e.message); }
+  $("checkout").disabled = Object.keys(cart).length === 0;
+};
+
+async function loadOrders() {
+  try {
+    const orders = await api(`/api/orders?user_id=${encodeURIComponent(uid())}`);
+    if (!orders.length) { $("orders").innerHTML = "No orders yet."; return; }
+    const sagas = await Promise.all(orders.slice(0, 5).map(o => api(`/api/orders/${o.id}/saga`).catch(() => ({log: []}))));
+    $("orders").innerHTML = orders.slice(0, 5).map((o, i) => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--line)">
+        <div class="row"><b>${esc(o.id)}</b><span class="pill ${o.status}">${o.status}</span>
+          <span>${money(o.total)}</span><span class="muted">${new Date(o.created_at).toLocaleString()}</span></div>
+        ${o.failure_reason ? `<div class="muted">Reason: ${esc(o.failure_reason)}</div>` : ""}
+        ${renderSaga(sagas[i].log)}
+      </div>`).join("");
+  } catch (e) { $("orders").textContent = "Failed to load orders: " + e.message; }
+}
+
+async function loadAnalytics() {
+  try {
+    const {windows} = await api("/api/analytics/latest?limit=24");
+    if (!windows.length) return;
+    $("analytics").innerHTML = `<table><tr><th>Window (end)</th><th>Event</th><th>Events</th><th>Unique users</th><th>Revenue</th></tr>${
+      windows.map(w => `<tr><td>${new Date(w.windowEnd).toLocaleTimeString()}</td><td>${esc(w.eventType)}</td>
+        <td>${w.eventCount}</td><td>${w.uniqueUsers}</td><td>${w.revenue ? money(w.revenue) : "–"}</td></tr>`).join("")}</table>`;
+  } catch (e) { /* analytics is optional for the page */ }
+}
+
+$("userId").addEventListener("change", loadOrders);
+loadProducts(); loadOrders(); loadAnalytics();
+setInterval(loadAnalytics, 10000);
+</script>
+</body>
+</html>

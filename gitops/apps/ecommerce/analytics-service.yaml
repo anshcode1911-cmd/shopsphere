@@ -1,0 +1,82 @@
+# analytics-service: Serves Flink window results (Kafka consumer, Firestore, REST)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  labels:
+    app: analytics-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: analytics-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+        app.kubernetes.io/part-of: shopsphere
+    spec:
+      serviceAccountName: shopsphere-app
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: analytics-service
+      containers:
+        - name: analytics-service
+          image: analytics-service          # rewritten by kustomization.yaml `images:` (CI bumps the tag)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: platform-config      # created by Terraform stage 02
+            - secretRef:
+                name: platform-secrets     # created by Terraform stage 02
+          env:
+            - name: SERVICE_NAME
+              value: "analytics-service"
+            - name: KAFKA_GROUP_ID
+              value: "analytics-service"
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  labels:
+    app: analytics-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  type: ClusterIP
+  selector:
+    app: analytics-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: metrics
+      port: 9090
+      targetPort: http

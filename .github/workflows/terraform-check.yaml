@@ -1,0 +1,20 @@
+name: terraform-check
+on:
+  pull_request:
+    paths: ["infra/terraform/**"]
+  push:
+    branches: [main]
+    paths: ["infra/terraform/**"]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        dir: [infra/terraform/01-platform, infra/terraform/02-bootstrap]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -recursive
+        working-directory: ${{ matrix.dir }}
+      - run: terraform init -backend=false && terraform validate
+        working-directory: ${{ matrix.dir }}

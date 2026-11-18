@@ -1,0 +1,82 @@
+# user-service: Customer accounts (REST, Cloud SQL)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: user-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app: user-service
+        app.kubernetes.io/part-of: shopsphere
+    spec:
+      serviceAccountName: shopsphere-app
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: user-service
+      containers:
+        - name: user-service
+          image: user-service          # rewritten by kustomization.yaml `images:` (CI bumps the tag)
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: platform-config      # created by Terraform stage 02
+            - secretRef:
+                name: platform-secrets     # created by Terraform stage 02
+          env:
+            - name: SERVICE_NAME
+              value: "user-service"
+            - name: DB_NAME
+              value: "users"
+          resources:
+            requests: {cpu: 100m, memory: 192Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  labels:
+    app: user-service
+    app.kubernetes.io/part-of: shopsphere
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: metrics
+      port: 9090
+      targetPort: http
