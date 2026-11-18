@@ -10,7 +10,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/YOUR_GITHUB_USER/shopsphere.git
+    repoURL: https://github.com/anshcode1911-cmd/shopsphere.git
     targetRevision: main
     path: gitops/apps/observability
   destination:

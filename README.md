@@ -53,7 +53,7 @@ gh repo create shopsphere --public --source=. --remote=origin   # public = ArgoC
 
 ```bash
 export PROJECT_ID=<your-gcp-project-id>
-export REPO=<your-github-user>/shopsphere
+export REPO=anshcode1911-cmd/shopsphere
 bash scripts/configure.sh $PROJECT_ID $REPO          # optional 3rd arg: region (default us-central1)
 git add -A && git commit -m "configure project" && git push -u origin main
 ```
