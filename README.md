@@ -2,7 +2,7 @@
 
 CS/SS G527 Cloud Computing assignment. The project has 8 microservices on GCP and uses the **Saga pattern** for checkout. Everything is wired with Terraform, ArgoCD, Kafka + Flink, Prometheus/Grafana/Loki and Cloud Logging.
 
-Full design: [`docs/DESIGN.md`](docs/DESIGN.md) (PDF: `docs/ShopSphere-Design-Document.pdf`). Who did what: [`task_division.txt`](task_division.txt).
+Full design: [`docs/DESIGN.md`](docs/DESIGN.md) (PDF: `docs/ShopSphere-Design-Document.pdf`). Task division: [`task_division.txt`](task_division.txt) (individual submission: Ansh, 2025H1120161P).
 
 ```
 shopsphere/
@@ -125,7 +125,7 @@ kubectl -n monitoring port-forward svc/kps-grafana 3000:80
 # Flink UI: Cloud Console -> Dataproc -> Clusters -> shopsphere-flink -> Web Interfaces -> YARN -> Flink
 ```
 
-## 8. Demo script (each member shows their part)
+## 8. Demo script
 
 **Saga (f) + REST/gRPC (b)** — in the web UI with User ID `u-0001`:
 

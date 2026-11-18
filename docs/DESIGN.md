@@ -1,6 +1,6 @@
 # 1. Introduction
 
-This document describes the design of ShopSphere, the cloud application built by our group for the Cloud Computing assignment. ShopSphere is a small online store. A customer can browse products, add them to a cart and place an order. When an order is placed, stock has to be reserved, payment has to be taken and the order has to be confirmed. These three steps are handled by different services with their own databases, so we used the Saga pattern to keep them consistent. This is the concept we applied for requirement (f).
+This document describes the design of ShopSphere, the cloud application I built for the Cloud Computing assignment. ShopSphere is a small online store. A customer can browse products, add them to a cart and place an order. When an order is placed, stock has to be reserved, payment has to be taken and the order has to be confirmed. These three steps are handled by different services with their own databases, so I used the Saga pattern to keep them consistent. This is the concept applied for requirement (f).
 
 The application is deployed on Google Cloud Platform (GCP) and is made up of eight microservices:
 
@@ -87,7 +87,7 @@ The services on GKE are stateless. All data is kept in the managed databases, so
 
 # 4. Communication Between Services
 
-The assignment asks for REST, gRPC and message queues. Table 4 lists where each is used and why we chose it for that path.
+The assignment asks for REST, gRPC and message queues. Table 4 lists where each is used and why I chose it for that path.
 
 | From | To | Mechanism | Reason |
 |---|---|---|---|
@@ -104,7 +104,7 @@ The assignment asks for REST, gRPC and message queues. Table 4 lists where each 
 
 The gRPC interface is defined in proto/ecommerce.proto.
 
-One problem we found with gRPC on Kubernetes is load balancing. gRPC keeps a single connection open, so with a normal ClusterIP service all requests from one client go to the same pod, and new pods added by the HPA get no traffic. To fix this we:
+One problem I found with gRPC on Kubernetes is load balancing. gRPC keeps a single connection open, so with a normal ClusterIP service all requests from one client go to the same pod, and new pods added by the HPA get no traffic. To fix this I:
 
 - made the gRPC services headless;
 - used the round_robin load balancing policy in the clients;
@@ -126,7 +126,7 @@ These belong to three different services and two different database products. A 
 
 ## 5.2 Solution
 
-We used an orchestrated Saga. The order-service acts as the orchestrator and calls each step in turn. Each step is a local transaction in one service, and each step (except the last) has a compensating action that undoes it.
+I used an orchestrated Saga. The order-service acts as the orchestrator and calls each step in turn. Each step is a local transaction in one service, and each step (except the last) has a compensating action that undoes it.
 
 | Step | Action | Compensation |
 |---|---|---|
@@ -150,13 +150,13 @@ If a step fails, the orchestrator runs the compensations of the earlier steps in
 
 ## 5.4 Demonstration
 
-We show three cases in the demo:
+I show three cases in the demo:
 
 1. A normal order completes.
 2. With the "simulate payment failure" option ticked, the payment is declined and the stock is released again.
 3. An order for more units than are in stock is rejected at step 1.
 
-We also tested 40 orders placed at the same time for a product with 3 units in stock. Exactly 3 orders completed and stock did not go below zero.
+I also tested 40 orders placed at the same time for a product with 3 units in stock. Exactly 3 orders completed and stock did not go below zero.
 
 # 6. Real-Time Stream Processing
 
@@ -178,7 +178,7 @@ The job is built with Maven by GitHub Actions and submitted to Dataproc with the
 
 # 7. Storage
 
-We used three storage products. Each service uses only its own database or collection.
+I used three storage products. Each service uses only its own database or collection.
 
 | Product | Type | Data stored | Reason for choice |
 |---|---|---|---|
@@ -208,7 +208,7 @@ The load test uses k6 (loadtest/k6-load.js):
 - Each user lists products, views products, adds items to the cart and places orders.
 - The test passes if fewer than 5% of requests fail.
 
-During the test we watch the HPAs with kubectl get hpa -w and in Grafana. The number of pods goes up under load and comes back down after the test ends.
+During the test I watch the HPAs with kubectl get hpa -w and in Grafana. The number of pods goes up under load and comes back down after the test ends.
 
 # 9. GitOps and CI/CD
 
@@ -225,13 +225,13 @@ Figure 5 shows the deployment flow.
 3. The workflow then updates the image tags in gitops/apps/ecommerce/kustomization.yaml and commits the change.
 4. ArgoCD sees the new commit and updates the cluster.
 
-Nobody runs kubectl apply. If someone changes something in the cluster by hand, ArgoCD reverts it. To roll back, we revert the commit in Git.
+Nobody runs kubectl apply. If someone changes something in the cluster by hand, ArgoCD reverts it. To roll back, I revert the commit in Git.
 
 # 10. Observability
 
 ## 10.1 Metrics
 
-We installed kube-prometheus-stack, which includes Prometheus, Grafana, node-exporter and kube-state-metrics. Every service exposes a /metrics endpoint with request count and request duration. A ServiceMonitor tells Prometheus to collect them.
+I installed kube-prometheus-stack, which includes Prometheus, Grafana, node-exporter and kube-state-metrics. Every service exposes a /metrics endpoint with request count and request duration. A ServiceMonitor tells Prometheus to collect them.
 
 The Grafana dashboard is stored in Git and loaded automatically. It shows:
 
@@ -273,7 +273,7 @@ All services write logs in JSON format. Two logging systems are used:
 
 # 13. Cost and Clean-up
 
-The most expensive resources are the Kafka cluster, the Dataproc node, Cloud SQL and the GKE nodes. We create the environment only for testing and the demo. To delete everything, we run terraform destroy, first in 02-bootstrap and then in 01-platform.
+The most expensive resources are the Kafka cluster, the Dataproc node, Cloud SQL and the GKE nodes. I create the environment only for testing and the demo. To delete everything, I run terraform destroy, first in 02-bootstrap and then in 01-platform.
 
 # 14. Limitations
 

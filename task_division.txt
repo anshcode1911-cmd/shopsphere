@@ -1,52 +1,27 @@
 CS/SS G527 Cloud Computing - Assignment - Task Division
-Project : ShopSphere - cloud-native e-commerce on Google Cloud (concept: Saga pattern)
-Repo    : https://github.com/<github-user>/shopsphere
+Project : ShopSphere - e-commerce application on Google Cloud (concept: Saga pattern)
 
-Each member owns 2 requirements (a-h) and 2 services, and demonstrates them.
+Team size: 1 (individual submission)
 
--------------------------------------------------------------------------------
-Member 1
-  ID No : 20XXXXXXXXXX
-  Name  : <MEMBER 1 NAME>
-  Tasks : (a) Infrastructure as Code - Terraform 01-platform + 02-bootstrap
-          (d) GitOps - ArgoCD app-of-apps, GitHub Actions image build + tag bump
-  Services: gateway (public web UI + API gateway), user-service (REST, Cloud SQL)
-  Files : infra/terraform/**, gitops/argocd/**, .github/workflows/build-deploy.yaml,
-          services/gateway/**, services/user-service/**
+ID No : 2025H1120161P
+Name  : Ansh
 
--------------------------------------------------------------------------------
-Member 2
-  ID No : 20XXXXXXXXXX
-  Name  : <MEMBER 2 NAME>
-  Tasks : (b) Serverless function + communication mechanisms (REST, gRPC, Kafka, Pub/Sub)
-          (g) Storage - Cloud Storage, Cloud SQL PostgreSQL, Firestore
-  Services: invoice-function (Cloud Functions gen2, Pub/Sub-triggered),
-            payment-service (gRPC, Firestore)
-  Files : functions/invoice-function/**, services/payment-service/**, proto/ecommerce.proto,
-          infra/terraform/01-platform/{function,pubsub,storage,sql,firestore}.tf
+Tasks assigned: all tasks (a) to (h)
+  (a) Infrastructure as Code - Terraform (infra/terraform/01-platform, 02-bootstrap)
+  (b) Serverless function and communication mechanisms (REST, gRPC, Kafka, Pub/Sub)
+  (c) Managed Kubernetes (GKE), Horizontal Pod Autoscalers, k6 load test
+  (d) GitOps with ArgoCD and GitHub Actions
+  (e) Real-time stream processing with Flink on Dataproc and Managed Kafka
+  (f) Concept - Saga pattern for order placement
+  (g) Storage - Cloud Storage, Cloud SQL (PostgreSQL), Firestore
+  (h) Observability - Prometheus, Grafana, Loki, Cloud Logging
 
--------------------------------------------------------------------------------
-Member 3
-  ID No : 20XXXXXXXXXX
-  Name  : <MEMBER 3 NAME>
-  Tasks : (c) Managed Kubernetes (GKE), HPAs, k6 load test
-          (f) Concept - Saga pattern (orchestration + compensating transactions)
-  Services: order-service (REST, Saga orchestrator, Cloud SQL),
-            catalog-service (gRPC, inventory, Cloud SQL)
-  Files : services/order-service/**, services/catalog-service/**, tests/test_saga.py,
-          gitops/apps/ecommerce/{hpa,pdb,*-service}.yaml, loadtest/k6-load.js,
-          infra/terraform/01-platform/gke.tf
-
--------------------------------------------------------------------------------
-Member 4
-  ID No : 20XXXXXXXXXX
-  Name  : <MEMBER 4 NAME>
-  Tasks : (e) Real-time stream processing - Flink on Dataproc with Managed Kafka
-          (h) Observability - Prometheus, Grafana dashboard, Loki, Cloud Logging
-  Services: analytics-flink (Flink job on Dataproc),
-            analytics-service (Kafka consumer, Firestore, REST)
-  Files : analytics-flink/**, services/analytics-service/**,
-          .github/workflows/flink-job.yaml, scripts/submit-flink-job.sh,
-          gitops/argocd/{monitoring,logging,observability}.yaml, gitops/apps/observability/**,
-          infra/terraform/01-platform/{kafka,dataproc,logging}.tf
--------------------------------------------------------------------------------
+Services implemented: all 8 services
+  1. gateway            (GKE, REST, public URL)
+  2. user-service       (GKE, REST, Cloud SQL)
+  3. catalog-service    (GKE, gRPC, Cloud SQL)
+  4. order-service      (GKE, REST, Saga orchestrator, Cloud SQL)
+  5. payment-service    (GKE, gRPC, Firestore)
+  6. analytics-service  (GKE, REST, Kafka consumer, Firestore)
+  7. invoice-function   (Cloud Functions, Pub/Sub trigger)
+  8. analytics-flink    (Flink job on Dataproc)
